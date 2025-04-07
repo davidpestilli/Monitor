@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../services/supabase';
 import { toast } from 'sonner';
 
-function ModalAdicionar({ onRefresh }) {
-  const [showModal, setShowModal] = useState(false);
+function ModalAdicionar({ onRefresh, onClose }) {
   const [tribunal, setTribunal] = useState('');
   const [texto, setTexto] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -42,74 +41,60 @@ function ModalAdicionar({ onRefresh }) {
       toast.success(`${registros.length} processo(s) adicionados com sucesso!`);
       setTexto('');
       setTribunal('');
-      setShowModal(false);
-
-      if (onRefresh) {
-        onRefresh(); // Recarrega a tabela
-      }
+      onClose();
+      if (onRefresh) onRefresh();
     }
   };
 
   return (
-    <div>
-      <button
-        onClick={() => setShowModal(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
-      >
-        Adicionar Processos
-      </button>
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <h2 className="text-lg font-semibold mb-4">Adicionar Processos</h2>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">Adicionar Processos</h2>
+        <textarea
+          className="w-full border rounded p-2 text-sm mb-4"
+          rows={4}
+          placeholder="Cole aqui os números dos processos"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+        />
 
-            <textarea
-              className="w-full border rounded p-2 text-sm mb-4"
-              rows={4}
-              placeholder="Cole aqui os números dos processos"
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-            />
-
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setTribunal('STJ')}
-                className={`px-3 py-1 rounded border ${
-                  tribunal === 'STJ' ? 'bg-blue-500 text-white' : 'bg-white'
-                }`}
-              >
-                STJ
-              </button>
-              <button
-                onClick={() => setTribunal('STF')}
-                className={`px-3 py-1 rounded border ${
-                  tribunal === 'STF' ? 'bg-blue-500 text-white' : 'bg-white'
-                }`}
-              >
-                STF
-              </button>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-3 py-1 text-sm rounded border border-gray-300"
-                disabled={carregando}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAdicionar}
-                className="px-4 py-1 text-sm bg-green-600 text-white rounded"
-                disabled={carregando}
-              >
-                {carregando ? 'Adicionando...' : 'Adicionar'}
-              </button>
-            </div>
-          </div>
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setTribunal('STJ')}
+            className={`px-3 py-1 rounded border ${
+              tribunal === 'STJ' ? 'bg-blue-500 text-white' : 'bg-white'
+            }`}
+          >
+            STJ
+          </button>
+          <button
+            onClick={() => setTribunal('STF')}
+            className={`px-3 py-1 rounded border ${
+              tribunal === 'STF' ? 'bg-blue-500 text-white' : 'bg-white'
+            }`}
+          >
+            STF
+          </button>
         </div>
-      )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-3 py-1 text-sm rounded border border-gray-300"
+            disabled={carregando}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleAdicionar}
+            className="px-4 py-1 text-sm bg-green-600 text-white rounded"
+            disabled={carregando}
+          >
+            {carregando ? 'Adicionando...' : 'Adicionar'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
