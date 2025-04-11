@@ -9,10 +9,24 @@ function Table({ dados, carregando }) {
   const [editandoCampo, setEditandoCampo] = useState(null);
   const [selecionados, setSelecionados] = useState([]);
 
+  const definirSituacao = (movimentacao) => {
+    if (!movimentacao) return 'Em trâmite';
+  
+    const texto = movimentacao.toLowerCase();
+  
+    if (texto.includes('recebido')) return 'Recebido';
+    if (texto.includes('baixa')) return 'Baixa';
+    if (texto.includes('trânsito')) return 'Trânsito';
+  
+    return 'Em trâmite';
+  };
+  
+
   const getBadgeColor = (situacao) => {
     switch (situacao?.toLowerCase()) {
       case 'baixa':
       case 'trânsito':
+      case 'recebido':
         return 'bg-green-200 text-green-900';
       case 'em trâmite':
         return 'bg-yellow-200 text-yellow-900';
@@ -20,6 +34,7 @@ function Table({ dados, carregando }) {
         return 'bg-slate-100 text-slate-800';
     }
   };
+  
 
   const renderTooltip = (texto, children) => (
     <div className="relative group w-full">
@@ -30,13 +45,55 @@ function Table({ dados, carregando }) {
     </div>
   );
 
-  const salvarCampo = async (id, campo, valor) => {
-    const { error } = await supabase.from('processos').update({ [campo]: valor }).eq('id', id);
-    if (error) toast.error('Erro ao salvar alteração.');
-    else toast.success('Campo atualizado com sucesso.');
-    setEditandoCampo(null);
+  const atualizarSituacao = async (id, movimentacao) => {
+    const novaSituacao = definirSituacao(movimentacao);
+    const { error } = await supabase
+      .from('processos')
+      .update({ situacao: novaSituacao })
+      .eq('id', id);
+  
+    if (error) {
+      toast.error('Erro ao atualizar a situação.');
+    }
   };
 
+
+const salvarCampo = async (id, campo, valor) => {
+  const { error } = await supabase.from('processos').update({ [campo]: valor }).eq('id', id);
+
+  if (error) {
+    toast.error('Erro ao salvar alteração.');
+  } else {
+    toast.success('Campo atualizado com sucesso.');
+
+    // Se o campo alterado foi a movimentação, atualiza também a situação
+    if (campo === 'movimentacao') {
+      atualizarSituacao(id, valor);
+    }
+
+    setEditandoCampo(null);
+  }
+};
+
+const forcarAtualizacaoSituacoes = async () => {
+  let erros = 0;
+
+  for (const item of dados) {
+    const novaSituacao = definirSituacao(item.movimentacao);
+
+    const { error } = await supabase
+      .from('processos')
+      .update({ situacao: novaSituacao })
+      .eq('id', item.id);
+
+    if (error) erros++;
+  }
+
+  if (erros === 0) toast.success('Todas as situações foram atualizadas com sucesso!');
+  else toast.error(`Houve ${erros} erro(s) na atualização.`);
+};
+
+  
   const renderModalEditavel = (item, campo) => (
     renderTooltip(item[campo], (
       <span
@@ -76,16 +133,26 @@ function Table({ dados, carregando }) {
 
   return (
     <>
-      {selecionados.length > 0 && (
-        <div className="mb-2">
-          <button
-            onClick={excluirSelecionados}
-            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-          >
-            Excluir selecionados ({selecionados.length})
-          </button>
-        </div>
-      )}
+
+
+<div className="mb-4 flex flex-wrap justify-between items-center gap-2">
+  {selecionados.length > 0 && (
+    <button
+      onClick={excluirSelecionados}
+      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+    >
+      Excluir selecionados ({selecionados.length})
+    </button>
+  )}
+  <button
+    onClick={forcarAtualizacaoSituacoes}
+    className="bg-green-300 hover:bg-gray-400 text-gray-800 px-5 py-2 rounded text-sm ml-auto"
+  >
+    Atualizar Situações
+  </button>
+</div>
+
+
 
       <div className="overflow-auto rounded-lg shadow bg-white">
         <table className="min-w-full text-sm text-left border-separate border-spacing-y-1">
