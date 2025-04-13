@@ -137,15 +137,29 @@ const forcarAtualizacaoSituacoes = async () => {
 
   const excluirSelecionados = async () => {
     if (confirm(`Deseja realmente excluir ${selecionados.length} processo(s)?`)) {
-      const { error } = await supabase.from('processos').delete().in('id', selecionados);
-      if (error) toast.error('Erro ao excluir.');
-      else {
-        toast.success(`${selecionados.length} processo(s) excluído(s).`);
+      // Obtem os tjsps relacionados aos processos selecionados
+      const processosSelecionados = dados.filter((item) => selecionados.includes(item.id));
+      const tjsps = processosSelecionados.map((item) => item.tjsp);
+  
+      // Exclui os registros da tabela "pesquisas"
+      const { error: errorPesquisas } = await supabase.from('pesquisas').delete().in('tjsp', tjsps);
+      if (errorPesquisas) {
+        toast.error('Erro ao excluir pesquisas.');
+        return;
+      }
+  
+      // Exclui os registros da tabela "processos"
+      const { error: errorProcessos } = await supabase.from('processos').delete().in('id', selecionados);
+      if (errorProcessos) {
+        toast.error('Erro ao excluir processos.');
+      } else {
+        toast.success(`${selecionados.length} processo(s) e pesquisas relacionadas excluídos com sucesso.`);
         setSelecionados([]);
         window.location.reload();
       }
     }
   };
+  
 
   return (
     <>
