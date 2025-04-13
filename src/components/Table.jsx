@@ -79,19 +79,35 @@ const forcarAtualizacaoSituacoes = async () => {
   let erros = 0;
 
   for (const item of dados) {
+    const atualizacoes = {};
     const novaSituacao = definirSituacao(item.movimentacao);
 
-    const { error } = await supabase
-      .from('processos')
-      .update({ situacao: novaSituacao })
-      .eq('id', item.id);
+    if (item.situacao !== novaSituacao) {
+      atualizacoes.situacao = novaSituacao;
+    }
 
-    if (error) erros++;
+    if (item.link?.includes('processo.stj.jus.br/processo/pesquisa/')) {
+      atualizacoes.decisao = 'Não há decisão';
+    }
+
+    if (item.movimentacao === 'Não há movimentação no STJ') {
+      atualizacoes.movimentacao = item.movimentacao; // reforça valor para lógica visual
+    }
+
+    if (Object.keys(atualizacoes).length > 0) {
+      const { error } = await supabase
+        .from('processos')
+        .update(atualizacoes)
+        .eq('id', item.id);
+
+      if (error) erros++;
+    }
   }
 
   if (erros === 0) toast.success('Todas as situações foram atualizadas com sucesso!');
   else toast.error(`Houve ${erros} erro(s) na atualização.`);
 };
+
 
   
   const renderModalEditavel = (item, campo) => (
@@ -247,9 +263,13 @@ const forcarAtualizacaoSituacoes = async () => {
                   <td className="px-4 py-2">
                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${getBadgeColor(item.situacao)}`}>{item.situacao}</span>
                   </td>
-                  <td className="px-4 py-2">{renderModalEditavel(item, 'decisao')}</td>
+                  <td className={`px-4 py-2 ${item.link?.includes('processo.stj.jus.br/processo/pesquisa/') ? 'bg-yellow-100' : ''}`}>
+                    {renderModalEditavel(item, 'decisao')}
+                  </td>
                   <td className="px-4 py-2">{renderModalEditavel(item, 'resumo')}</td>
-                  <td className="px-4 py-2">{renderModalEditavel(item, 'movimentacao')}</td>
+                  <td className={`px-4 py-2 ${item.movimentacao === 'Não há movimentação no STJ' ? 'bg-yellow-100' : ''}`}>
+                    {renderModalEditavel(item, 'movimentacao')}
+                  </td>
                   <td className="px-4 py-2 text-center">
                     <a href={item.link} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-6 h-6 text-blue-600 hover:text-blue-800">
                       <ExternalLink size={16} />
