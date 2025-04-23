@@ -75,39 +75,6 @@ const salvarCampo = async (id, campo, valor) => {
   }
 };
 
-const forcarAtualizacaoSituacoes = async () => {
-  let erros = 0;
-
-  for (const item of dados) {
-    const atualizacoes = {};
-    const novaSituacao = definirSituacao(item.movimentacao);
-
-    if (item.situacao !== novaSituacao) {
-      atualizacoes.situacao = novaSituacao;
-    }
-
-    if (item.link?.includes('processo.stj.jus.br/processo/pesquisa/')) {
-      atualizacoes.decisao = 'Não há decisão';
-    }
-
-    if (item.movimentacao === 'Não há movimentação no STJ') {
-      atualizacoes.movimentacao = item.movimentacao; // reforça valor para lógica visual
-    }
-
-    if (Object.keys(atualizacoes).length > 0) {
-      const { error } = await supabase
-        .from('processos')
-        .update(atualizacoes)
-        .eq('id', item.id);
-
-      if (error) erros++;
-    }
-  }
-
-  if (erros === 0) toast.success('Todas as situações foram atualizadas com sucesso!');
-  else toast.error(`Houve ${erros} erro(s) na atualização.`);
-};
-
 
   
   const renderModalEditavel = (item, campo) => (
@@ -174,12 +141,7 @@ const forcarAtualizacaoSituacoes = async () => {
       Excluir selecionados ({selecionados.length})
     </button>
   )}
-  <button
-    onClick={forcarAtualizacaoSituacoes}
-    className="bg-green-300 hover:bg-gray-400 text-gray-800 px-5 py-2 rounded text-sm ml-auto"
-  >
-    Atualizar Situações
-  </button>
+
 </div>
 
 
