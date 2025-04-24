@@ -74,7 +74,9 @@ function ModalPesquisas({ tjsp, onClose }) {
               {paginados.map((item, index) => (
                 <tr key={item.id} className="border-t">
                   <td className="p-2">{(pagina - 1) * porPagina + index + 1}</td>
-                  <td className="p-2">{item.data}</td>
+                  <td className="p-2">
+                    {item.data ? new Date(item.data).toLocaleDateString('pt-BR') : ''}
+                  </td>
                   <td
                     className="p-2 cursor-pointer hover:bg-blue-50"
                     onClick={() => setModalEdicao({ id: item.id, campo: 'decisao', valor: item.decisao })}

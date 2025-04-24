@@ -191,7 +191,6 @@ const salvarCampo = async (id, campo, valor) => {
                         value={editandoCampo.valor}
                         autoFocus
                         onChange={(e) => setEditandoCampo({ ...editandoCampo, valor: e.target.value })}
-                        onBlur={() => salvarCampo(item.id, 'gap', editandoCampo.valor)}
                         onKeyDown={(e) => e.key === 'Enter' && salvarCampo(item.id, 'gap', editandoCampo.valor)}
                         className="border px-2 py-1 rounded w-full text-sm"
                       />
