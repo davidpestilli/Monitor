@@ -2,15 +2,21 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
 import Table from '../components/Table';
 import ModalAdicionar from '../components/ModalAdicionar';
-import Filters from '../components/Filters';
+import { Search, Filter, Download, Plus, RotateCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { toast } from 'sonner'
+import { toast } from 'sonner';
 
 function Home() {
   const [dados, setDados] = useState([]);
   const [filtrados, setFiltrados] = useState([]);
   const [carregando, setCarregando] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  
+  // Novos estados para o sistema de filtros redesenhado
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterTribunal, setFilterTribunal] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const exportarParaExcel = () => {
     const dadosExportados = filtrados.map((item) => {
@@ -18,7 +24,7 @@ function Home() {
         'Criado em': item.created_at
           ? new Date(item.created_at).toLocaleDateString('pt-BR')
           : '',
-        'Gap': item.gap || '',
+        'GAP': item.gap || '',
         'Parte Ré + Advogado': item.reu || '',
         'Número TJSP': item.tjsp || '',
         'Número Superior': item.superior || '',
@@ -32,7 +38,6 @@ function Home() {
           : '',
       };
     });
-
 
     // Ordena por Situação e Tribunal
     dadosExportados.sort((a, b) => {
@@ -51,8 +56,7 @@ function Home() {
       .padStart(2, '0')}-${hoje.getFullYear()}.xlsx`;
   
     XLSX.writeFile(wb, nomeArquivo);
-  };  
-  
+  };
 
   const carregarDados = async () => {
     setCarregando(true);
@@ -68,16 +72,31 @@ function Home() {
     carregarDados();
   }, []);
 
-  const aplicarFiltro = ({ gap, tribunal, situacao, reu, tjsp, superior }) => {
+  // Nova lógica de filtros unificada
+  useEffect(() => {
     let resultado = [...dados];
-    if (gap) resultado = resultado.filter((d) => d.gap?.toLowerCase().includes(gap.toLowerCase()));
-    if (tribunal) resultado = resultado.filter((d) => d.tribunal === tribunal);
-    if (situacao) resultado = resultado.filter((d) => d.situacao === situacao);
-    if (reu) resultado = resultado.filter((d) => d.reu?.toLowerCase().includes(reu.toLowerCase()));
-    if (tjsp) resultado = resultado.filter((d) => d.tjsp?.toLowerCase().includes(tjsp.toLowerCase()));
-    if (superior) resultado = resultado.filter((d) => d.superior?.toLowerCase().includes(superior.toLowerCase()));
+    
+    // Filtro de busca unificada
+    if (searchTerm) {
+      resultado = resultado.filter(item => 
+        item.gap?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.reu?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.tjsp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.superior?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Filtros avançados
+    if (filterStatus) {
+      resultado = resultado.filter(item => item.situacao === filterStatus);
+    }
+    
+    if (filterTribunal) {
+      resultado = resultado.filter(item => item.tribunal === filterTribunal);
+    }
+    
     setFiltrados(resultado);
-  };
+  }, [dados, searchTerm, filterStatus, filterTribunal]);
   
   const forcarAtualizacaoSituacoes = async () => {
     let erros = 0;
@@ -118,44 +137,145 @@ function Home() {
   
     if (erros === 0) toast.success('Todas as situações foram atualizadas com sucesso!');
     else toast.error(`Houve ${erros} erro(s) na atualização.`);
-  };  
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('');
+    setFilterTribunal('');
+  };
+
+  const hasActiveFilters = searchTerm || filterStatus || filterTribunal;
 
   return (
-    <div className="w-full px-4">
-      <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-        <Filters dados={dados} onFiltro={aplicarFiltro} />
-
-        <button
-          onClick={exportarParaExcel}
-          className="px-4 py-2 bg-green-600 text-white text-base rounded hover:bg-green-700"
-        >
-          Exportar Para Excel
-        </button>
-
-        <button
-          onClick={forcarAtualizacaoSituacoes}
-          className="px-4 py-2 bg-yellow-500 text-white text-base rounded hover:bg-yellow-600"
-        >
-          Atualizar Situações
-        </button>
-
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
-        >
-          Adicionar Processos
-        </button>
-
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-xl font-semibold text-gray-900">Monitor de Processos</h1>
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                {filtrados.length} processos
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={exportarParaExcel}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Download size={16} className="mr-2" />
+                Exportar
+              </button>
+              
+              <button
+                onClick={forcarAtualizacaoSituacoes}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <RotateCcw size={16} className="mr-2" />
+                Atualizar
+              </button>
+              
+              <button
+                onClick={() => setShowModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus size={16} className="mr-2" />
+                Adicionar
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Table dados={filtrados} carregando={carregando} />
+      {/* Main Content */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Search */}
+            <div className="relative flex-1 max-w-md">
+              <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar por GAP, réu, TJSP ou superior..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            
+            {/* Filter Toggle */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`inline-flex items-center px-3 py-2 border rounded-md text-sm font-medium transition-colors ${
+                  showAdvancedFilters || filterStatus || filterTribunal
+                    ? 'border-blue-300 text-blue-700 bg-blue-50'
+                    : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <Filter size={16} className="mr-2" />
+                Filtros
+              </button>
+              
+              {hasActiveFilters && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {/* Advanced Filters */}
+          {showAdvancedFilters && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="">Todas as situações</option>
+                  <option value="Em trâmite">Em trâmite</option>
+                  <option value="Recebido">Recebido</option>
+                  <option value="Baixa">Baixa</option>
+                  <option value="Trânsito">Trânsito</option>
+                </select>
+                
+                <select
+                  value={filterTribunal}
+                  onChange={(e) => setFilterTribunal(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="">Todos os tribunais</option>
+                  <option value="STJ">STJ</option>
+                  <option value="STF">STF</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
 
-      {showModal && (
-        <ModalAdicionar
-          onClose={() => setShowModal(false)}
+        {/* Table */}
+        <Table 
+          dados={filtrados} 
+          carregando={carregando} 
           onRefresh={carregarDados}
         />
-      )}
+
+        {/* Modal */}
+        {showModal && (
+          <ModalAdicionar
+            onClose={() => setShowModal(false)}
+            onRefresh={carregarDados}
+          />
+        )}
+      </div>
     </div>
   );
 }

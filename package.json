@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
-    "lucide-react": "^0.487.0",
+    "lucide-react": "^0.525.0",
     "papaparse": "^5.5.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

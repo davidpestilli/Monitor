@@ -1,92 +1,75 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import ModalPesquisas from './ModalPesquisas';
-import { Info, Trash2, ExternalLink } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { toast } from 'sonner';
 
-function Table({ dados, carregando }) {
+// Importação correta dos ícones
+import { 
+  Eye, 
+  ExternalLink, 
+  FileText, 
+  Calendar, 
+  MoreVertical, 
+  Edit3, 
+  Trash2 
+} from 'lucide-react';
+
+function Table({ dados, carregando, onRefresh }) {
   const [tjspSelecionado, setTjspSelecionado] = useState(null);
-  const [editandoCampo, setEditandoCampo] = useState(null);
   const [selecionados, setSelecionados] = useState([]);
-
-  const definirSituacao = (movimentacao) => {
-    if (!movimentacao) return 'Em trâmite';
   
-    const texto = movimentacao.toLowerCase();
-  
-    if (texto.includes('recebido')) return 'Recebido';
-    if (texto.includes('baixa')) return 'Baixa';
-    if (texto.includes('trânsito')) return 'Trânsito';
-  
-    return 'Em trâmite';
-  };
-  
+  // Estados para edição
+  const [editandoGap, setEditandoGap] = useState(null);
+  const [resumoModal, setResumoModal] = useState(null);
+  const [ultimasPesquisas, setUltimasPesquisas] = useState({});
 
-  const getBadgeColor = (situacao) => {
-    switch (situacao?.toLowerCase()) {
-      case 'baixa':
-      case 'trânsito':
-      case 'recebido':
-        return 'bg-green-200 text-green-900';
-      case 'em trâmite':
-        return 'bg-yellow-200 text-yellow-900';
-      default:
-        return 'bg-slate-100 text-slate-800';
-    }
-  };
-  
-
-  const renderTooltip = (texto, children) => (
-    <div className="relative group w-full">
-      <div className="truncate max-w-[180px]">{children}</div>
-      <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2 z-50 whitespace-pre-wrap max-w-xs shadow">
-        {texto}
-      </div>
-    </div>
-  );
-
-  const atualizarSituacao = async (id, movimentacao) => {
-    const novaSituacao = definirSituacao(movimentacao);
-    const { error } = await supabase
-      .from('processos')
-      .update({ situacao: novaSituacao })
-      .eq('id', id);
-  
-    if (error) {
-      toast.error('Erro ao atualizar a situação.');
-    }
-  };
-
-
-const salvarCampo = async (id, campo, valor) => {
-  const { error } = await supabase.from('processos').update({ [campo]: valor }).eq('id', id);
-
-  if (error) {
-    toast.error('Erro ao salvar alteração.');
-  } else {
-    toast.success('Campo atualizado com sucesso.');
-
-    // Se o campo alterado foi a movimentação, atualiza também a situação
-    if (campo === 'movimentacao') {
-      atualizarSituacao(id, valor);
-    }
-
-    setEditandoCampo(null);
-  }
-};
-
-
-  
-  const renderModalEditavel = (item, campo) => (
-    renderTooltip(item[campo], (
-      <span
-        onClick={() => setEditandoCampo({ id: item.id, campo, valor: item[campo] || '' })}
-        className="cursor-pointer hover:underline"
-      >
-        {item[campo] || <em className="text-gray-400">(vazio)</em>}
+  const StatusBadge = ({ status }) => {
+    const styles = {
+      'Em trâmite': 'bg-yellow-100 text-yellow-800',
+      'Recebido': 'bg-green-100 text-green-800',
+      'Baixa': 'bg-gray-100 text-gray-800',
+      'Trânsito': 'bg-purple-100 text-purple-800'
+    };
+    
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
+        {status}
       </span>
-    ))
-  );
+    );
+  };
+
+  const TribunalBadge = ({ tribunal }) => {
+    const color = tribunal === 'STF' ? 'bg-red-600' : 'bg-blue-600';
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white ${color}`}>
+        {tribunal}
+      </span>
+    );
+  };
+
+  const salvarGap = async (id, novoGap) => {
+    const { error } = await supabase.from('processos').update({ gap: novoGap }).eq('id', id);
+
+    if (error) {
+      toast.error('Erro ao salvar GAP.');
+    } else {
+      toast.success('GAP atualizado com sucesso.');
+      if (onRefresh) onRefresh();
+    }
+    setEditandoGap(null);
+  };
+
+  const salvarResumo = async (id, novoResumo) => {
+    const { error } = await supabase.from('processos').update({ resumo: novoResumo }).eq('id', id);
+
+    if (error) {
+      toast.error('Erro ao salvar resumo.');
+    } else {
+      toast.success('Resumo atualizado com sucesso.');
+      if (onRefresh) onRefresh();
+    }
+    setResumoModal(null);
+  };
 
   const toggleSelecionado = (id) => {
     setSelecionados((prev) =>
@@ -104,17 +87,16 @@ const salvarCampo = async (id, campo, valor) => {
 
   const excluirSelecionados = async () => {
     if (confirm(`Deseja realmente excluir ${selecionados.length} processo(s)?`)) {
-      // Obtem os tjsps relacionados aos processos selecionados
       const processosSelecionados = dados.filter((item) => selecionados.includes(item.id));
       const tjsps = processosSelecionados.map((item) => item.tjsp);
-  
+
       // Exclui os registros da tabela "pesquisas"
       const { error: errorPesquisas } = await supabase.from('pesquisas').delete().in('tjsp', tjsps);
       if (errorPesquisas) {
         toast.error('Erro ao excluir pesquisas.');
         return;
       }
-  
+
       // Exclui os registros da tabela "processos"
       const { error: errorProcessos } = await supabase.from('processos').delete().in('id', selecionados);
       if (errorProcessos) {
@@ -122,165 +104,407 @@ const salvarCampo = async (id, campo, valor) => {
       } else {
         toast.success(`${selecionados.length} processo(s) e pesquisas relacionadas excluídos com sucesso.`);
         setSelecionados([]);
-        window.location.reload();
+        if (onRefresh) onRefresh();
       }
     }
   };
-  
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Nunca';
+    
+    // Forçar horário meio-dia para evitar problemas de fuso horário
+    // Isso evita que a conversão UTC→Local mude o dia
+    const date = new Date(dateString + 'T12:00:00.000Z');
+    return date.toLocaleDateString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric'
+    });
+  };
+
+  const getDaysAgo = (dateString) => {
+    if (!dateString) return '';
+    
+    // Usar a mesma lógica para calcular dias
+    const date = new Date(dateString + 'T12:00:00.000Z');
+    const today = new Date();
+    const diffTime = today - date;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays === 0 ? 'hoje' : `${diffDays}d atrás`;
+  };
+
+  // Função para determinar a mensagem da decisão baseada na movimentação
+  const getDecisaoMessage = (item) => {
+    const movimentacao = item.movimentacao?.toLowerCase() || '';
+    
+    // Se a movimentação indica que não há movimentação no tribunal
+    if (movimentacao.includes('não há movimentação no stj') || 
+        movimentacao.includes('não há movimentação no stf')) {
+      return "Não há decisão";
+    }
+    
+    // Se há decisão, mostra ela
+    if (item.decisao) {
+      // Se a decisão contém "veja coluna link", substitui pela nova mensagem
+      if (item.decisao.toLowerCase().includes('veja coluna link')) {
+        return "Veja o link para a decisão";
+      }
+      return item.decisao;
+    }
+    
+    // Caso padrão quando não há decisão
+    return "Não há Despacho ou Acórdão registrado";
+  };
+
+  // Função para buscar e cachear a data da última pesquisa
+  const buscarUltimaPesquisa = async (tjsp) => {
+    // Se já temos a data em cache, retorna ela
+    if (ultimasPesquisas[tjsp]) {
+      return ultimasPesquisas[tjsp];
+    }
+
+    // Busca no banco
+    const { data, error } = await supabase
+      .from('pesquisas')
+      .select('data')
+      .eq('tjsp', tjsp)
+      .order('data', { ascending: false })
+      .limit(1);
+    
+    let resultado;
+    if (!error && data && data.length > 0) {
+      resultado = {
+        data: data[0].data,
+        tipo: 'pesquisa'
+      };
+    } else {
+      // Fallback para created_at
+      const processo = dados.find(item => item.tjsp === tjsp);
+      resultado = {
+        data: processo?.created_at,
+        tipo: 'criacao'
+      };
+    }
+    
+    // Armazena no cache
+    setUltimasPesquisas(prev => ({
+      ...prev,
+      [tjsp]: resultado
+    }));
+    
+    return resultado;
+  };
 
   return (
     <>
+      {/* Ações em lote */}
+      {selecionados.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-800">
+              {selecionados.length} processo(s) selecionado(s)
+            </span>
+            <div className="flex items-center space-x-3">
+              <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                Exportar selecionados
+              </button>
+              <button 
+                onClick={excluirSelecionados}
+                className="text-sm text-red-600 hover:text-red-800 font-medium"
+              >
+                Excluir selecionados
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-
-<div className="mb-4 flex flex-wrap justify-between items-center gap-2">
-  {selecionados.length > 0 && (
-    <button
-      onClick={excluirSelecionados}
-      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-    >
-      Excluir selecionados ({selecionados.length})
-    </button>
-  )}
-
-</div>
-
-
-
-      <div className="overflow-auto rounded-lg shadow bg-white">
-        <table className="min-w-full text-sm text-left border-separate border-spacing-y-1">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-600 border-b">
-            <tr>
-              <th className="px-4 py-2">#</th>
-              <th className="px-4 py-2">Gap</th>
-              <th className="px-4 py-2">Réu</th>
-              <th className="px-4 py-2">TJSP</th>
-              <th className="px-4 py-2">Superior</th>
-              <th className="px-4 py-2">Tribunal</th>
-              <th className="px-4 py-2">Situação</th>
-              <th className="px-4 py-2">Decisão</th>
-              <th className="px-4 py-2">Resumo</th>
-              <th className="px-4 py-2">Movimentação</th>
-              <th className="px-4 py-2 text-center">Link</th>
-              <th className="px-4 py-2 text-center">
-                <input
-                  type="checkbox"
-                  checked={selecionados.length === dados.length && dados.length > 0}
-                  onChange={toggleTodosSelecionados}
-                />
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {carregando ? (
+      {/* Tabela */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed" style={{ minWidth: '1400px' }}>
+            <colgroup>
+              <col style={{ width: '40px' }} /> {/* Checkbox */}
+              <col style={{ width: '200px' }} /> {/* Processo */}
+              <col style={{ width: '200px' }} /> {/* Réu */}
+              <col style={{ width: '150px' }} /> {/* Tribunal/Status */}
+              <col style={{ width: '300px' }} /> {/* Resumo */}
+              <col style={{ width: '400px' }} /> {/* Movimentação */}
+              <col style={{ width: '160px' }} /> {/* Ações */}
+            </colgroup>
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan={12} className="px-4 py-3 text-center">Carregando...</td>
+                <th className="w-8 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={selecionados.length === dados.length && dados.length > 0}
+                    onChange={toggleTodosSelecionados}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Processo
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Réu
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tribunal/Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Resumo
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Última Movimentação
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '160px' }}>
+                  Ações
+                </th>
               </tr>
-            ) : dados.length === 0 ? (
-              <tr>
-                <td colSpan={12} className="px-4 py-3 text-center text-gray-500 italic">Nenhum dado encontrado.</td>
-              </tr>
-            ) : (
-              dados.map((item, index) => (
-                <tr key={item.id} className="bg-white hover:bg-blue-50 border border-slate-200 rounded-md shadow-sm">
-                  <td className="px-4 py-2 font-semibold text-slate-600">{index + 1}</td>
-
-                  <td className="px-4 py-2">
-                    {editandoCampo?.id === item.id && editandoCampo?.campo === 'gap' ? (
-                      <input
-                        type="text"
-                        value={editandoCampo.valor}
-                        autoFocus
-                        onChange={(e) => setEditandoCampo({ ...editandoCampo, valor: e.target.value })}
-                        onKeyDown={(e) => e.key === 'Enter' && salvarCampo(item.id, 'gap', editandoCampo.valor)}
-                        className="border px-2 py-1 rounded w-full text-sm"
-                      />
-                    ) : (
-                      <span
-                        onClick={() => setEditandoCampo({ id: item.id, campo: 'gap', valor: item.gap || '' })}
-                        className="cursor-pointer hover:underline"
-                      >
-                        {item.gap || <em className="text-gray-400">(vazio)</em>}
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-2">{renderModalEditavel(item, 'reu')}</td>
-
-                  <td
-                    className="px-4 py-2 text-blue-600 underline cursor-pointer"
-                    onClick={() => setTjspSelecionado(item.tjsp)}
-                  >
-                    {item.tjsp}
-                  </td>
-
-                  <td className="px-4 py-2">
-                    {editandoCampo?.id === item.id && editandoCampo?.campo === 'superior' ? (
-                      <input
-                        type="text"
-                        value={editandoCampo.valor}
-                        autoFocus
-                        onChange={(e) => setEditandoCampo({ ...editandoCampo, valor: e.target.value })}
-                        onBlur={() => salvarCampo(item.id, 'superior', editandoCampo.valor)}
-                        onKeyDown={(e) => e.key === 'Enter' && salvarCampo(item.id, 'superior', editandoCampo.valor)}
-                        className="border px-2 py-1 rounded w-full text-sm"
-                      />
-                    ) : (
-                      <span
-                        onClick={() => setEditandoCampo({ id: item.id, campo: 'superior', valor: item.superior || '' })}
-                        className="cursor-pointer hover:underline"
-                      >
-                        {item.superior || <em className="text-gray-400">(vazio)</em>}
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-2">{item.tribunal}</td>
-                  <td className="px-4 py-2">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${getBadgeColor(item.situacao)}`}>{item.situacao}</span>
-                  </td>
-                  <td className={`px-4 py-2 ${item.link?.includes('processo.stj.jus.br/processo/pesquisa/') ? 'bg-yellow-100' : ''}`}>
-                    {renderModalEditavel(item, 'decisao')}
-                  </td>
-                  <td className="px-4 py-2">{renderModalEditavel(item, 'resumo')}</td>
-                  <td className={`px-4 py-2 ${item.movimentacao === 'Não há movimentação no STJ' ? 'bg-yellow-100' : ''}`}>
-                    {renderModalEditavel(item, 'movimentacao')}
-                  </td>
-                  <td className="px-4 py-2 text-center">
-                    <a href={item.link} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-6 h-6 text-blue-600 hover:text-blue-800">
-                      <ExternalLink size={16} />
-                    </a>
-                  </td>
-                  <td className="px-4 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selecionados.includes(item.id)}
-                      onChange={() => toggleSelecionado(item.id)}
-                    />
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {carregando ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    Carregando...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : dados.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    <div className="flex flex-col items-center">
+                      <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-lg font-medium text-gray-900 mb-1">Nenhum processo encontrado</p>
+                      <p className="text-sm text-gray-500">Tente ajustar os filtros ou adicionar novos processos</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                dados.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selecionados.includes(item.id)}
+                        onChange={() => toggleSelecionado(item.id)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
+                    
+                    {/* Coluna Processo: GAP + TJSP + Superior */}
+                    <td className="px-4 py-4">
+                      <div className="space-y-1">
+                        {/* GAP editável */}
+                        <div className="font-medium text-gray-900 text-sm">
+                          {editandoGap?.id === item.id ? (
+                            <input
+                              type="text"
+                              value={editandoGap.value}
+                              onChange={(e) => setEditandoGap({...editandoGap, value: e.target.value})}
+                              onBlur={() => salvarGap(item.id, editandoGap.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && salvarGap(item.id, editandoGap.value)}
+                              className="border border-blue-300 rounded px-2 py-1 text-sm w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              onClick={() => setEditandoGap({ id: item.id, value: item.gap })}
+                              className="cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded"
+                            >
+                              GAP: {item.gap}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-blue-600 font-mono">{item.tjsp}</div>
+                        {item.superior && (
+                          <div className="text-xs text-gray-500 font-mono">{item.superior}</div>
+                        )}
+                      </div>
+                    </td>
+                    
+                    {/* Coluna Réu */}
+                    <td className="px-4 py-4">
+                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate" title={item.reu}>
+                        {item.reu}
+                      </div>
+                    </td>
+                    
+                    {/* Coluna Tribunal/Status */}
+                    <td className="px-4 py-4">
+                      <div className="space-y-2">
+                        <TribunalBadge tribunal={item.tribunal} />
+                        <StatusBadge status={item.situacao} />
+                      </div>
+                    </td>
+                    
+                    {/* Coluna Resumo */}
+                    <td className="px-4 py-4">
+                      <div 
+                        className="text-sm text-gray-900 max-w-xs cursor-pointer hover:bg-blue-50 p-2 rounded transition-colors"
+                        onClick={() => setResumoModal({ id: item.id, value: item.resumo })}
+                        title={item.resumo || "Clique para adicionar resumo"}
+                      >
+                        {item.resumo ? (
+                          <div className="truncate">
+                            {item.resumo.length > 80 ? `${item.resumo.substring(0, 80)}...` : item.resumo}
+                          </div>
+                        ) : (
+                          <div className="text-gray-400 italic text-xs">
+                            Clique para adicionar resumo
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    
+                    {/* Coluna Última Movimentação */}
+                    <td className="px-4 py-4">
+                      <div className="text-sm text-gray-900 max-w-md">
+                        <div className="truncate font-medium" title={item.movimentacao}>
+                          {item.movimentacao}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 truncate" title={getDecisaoMessage(item)}>
+                          {getDecisaoMessage(item)}
+                        </div>
+                      </div>
+                    </td>
+                    
+                    {/* Coluna Ações */}
+                    <td className="px-2 py-4" style={{ width: '160px' }}>
+                      <div className="flex items-center justify-center" style={{ gap: '8px', minWidth: '160px' }}>
+                        {/* Ver histórico de pesquisas */}
+                        <button
+                          onClick={() => setTjspSelecionado(item.tjsp)}
+                          className="flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 transition-colors"
+                          title="Ver histórico de pesquisas"
+                          style={{ minWidth: '32px', minHeight: '32px' }}
+                        >
+                          <Eye size={16} />
+                        </button>
+                        
+                        {/* Abrir processo externo */}
+                        <button
+                          onClick={() => window.open(item.link, '_blank')}
+                          className="flex items-center justify-center w-8 h-8 rounded text-green-600 hover:bg-green-50 transition-colors"
+                          title="Abrir processo no tribunal"
+                          style={{ minWidth: '32px', minHeight: '32px' }}
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                        
+                        {/* Data da última pesquisa */}
+                        <div className="relative group">
+                          <button
+                            onMouseEnter={async () => {
+                              // Busca e cacheia a data no hover
+                              await buscarUltimaPesquisa(item.tjsp);
+                            }}
+                            onClick={async () => {
+                              const resultado = await buscarUltimaPesquisa(item.tjsp);
+                              
+                              let mensagem;
+                              if (resultado.tipo === 'pesquisa') {
+                                mensagem = `Última pesquisa: ${formatDate(resultado.data)} (${getDaysAgo(resultado.data)})`;
+                              } else {
+                                mensagem = `Processo criado em: ${formatDate(resultado.data)} (${getDaysAgo(resultado.data)}) - Sem pesquisas registradas`;
+                              }
+                              
+                              toast.info(mensagem);
+                            }}
+                            className="flex items-center justify-center w-8 h-8 rounded text-orange-600 hover:bg-orange-50 transition-colors"
+                            style={{ minWidth: '32px', minHeight: '32px' }}
+                          >
+                            <Calendar size={16} />
+                          </button>
+                          
+                          {/* Tooltip customizado */}
+                          {ultimasPesquisas[item.tjsp] && (
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                              {ultimasPesquisas[item.tjsp].tipo === 'pesquisa' ? (
+                                <>
+                                  <div className="font-semibold">Última pesquisa:</div>
+                                  <div>{formatDate(ultimasPesquisas[item.tjsp].data)}</div>
+                                  <div className="text-gray-300">({getDaysAgo(ultimasPesquisas[item.tjsp].data)})</div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="font-semibold">Processo criado:</div>
+                                  <div>{formatDate(ultimasPesquisas[item.tjsp].data)}</div>
+                                  <div className="text-gray-300">Sem pesquisas registradas</div>
+                                </>
+                              )}
+                              {/* Seta do tooltip */}
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Menu de mais opções */}
+                        <button
+                          onClick={() => console.log('Menu expandido para item:', item.id)}
+                          className="flex items-center justify-center w-8 h-8 rounded text-gray-600 hover:bg-gray-100 transition-colors"
+                          title="Mais opções"
+                          style={{ minWidth: '32px', minHeight: '32px' }}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* Modal de Pesquisas */}
       {tjspSelecionado && (
         <ModalPesquisas tjsp={tjspSelecionado} onClose={() => setTjspSelecionado(null)} />
       )}
 
-      {editandoCampo && (
+      {/* Modal do Resumo */}
+      {resumoModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow w-full max-w-lg">
-            <h3 className="text-lg font-semibold mb-2">Editar {editandoCampo.campo}</h3>
-            <textarea
-              rows={5}
-              className="w-full border rounded p-2 mb-4"
-              value={editandoCampo.valor}
-              onChange={(e) => setEditandoCampo({ ...editandoCampo, valor: e.target.value })}
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setEditandoCampo(null)} className="px-3 py-1 text-sm border rounded">Cancelar</button>
-              <button onClick={() => salvarCampo(editandoCampo.id, editandoCampo.campo, editandoCampo.valor)} className="px-4 py-1 text-sm bg-green-600 text-white rounded">Salvar</button>
+          <div className="bg-white rounded-lg shadow-lg w-1/3 max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Resumo do Processo</h3>
+              <button
+                onClick={() => setResumoModal(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex-1 p-6">
+              <textarea
+                rows={12}
+                className="w-full border border-gray-300 rounded-md p-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={resumoModal.value || ''}
+                onChange={(e) => setResumoModal({...resumoModal, value: e.target.value})}
+                placeholder="Digite o resumo do processo..."
+              />
+            </div>
+            
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button 
+                onClick={() => setResumoModal(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => salvarResumo(resumoModal.id, resumoModal.value)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+              >
+                Salvar
+              </button>
             </div>
           </div>
         </div>
