@@ -6,6 +6,7 @@
   "homepage": "https://github.com/davidpestilli/Monitor.git",
   "scripts": {
     "dev": "vite",
+    "server": "node server.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -14,6 +15,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
     "lucide-react": "^0.525.0",
     "papaparse": "^5.5.2",
     "react": "^19.0.0",
