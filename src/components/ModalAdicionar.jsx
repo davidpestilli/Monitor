@@ -7,6 +7,7 @@ function ModalAdicionar({ onRefresh, onClose }) {
   const [tribunal, setTribunal] = useState('');
   const [texto, setTexto] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [isHC, setIsHC] = useState(false);
 
   const handleAdicionar = async () => {
     if (!tribunal) {
@@ -14,22 +15,52 @@ function ModalAdicionar({ onRefresh, onClose }) {
       return;
     }
 
-    const regex = /\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g;
-    const numerosEncontrados = texto.match(regex);
+    let numerosEncontrados = [];
+    let registros = [];
 
-    if (!numerosEncontrados || numerosEncontrados.length === 0) {
-      toast.error('Nenhum número de processo válido foi encontrado.');
-      return;
+    if (isHC) {
+      // Regex para Habeas Corpus: HC 1.013.414 ou HC 1013414
+      const regexHC = /HC\s*(\d{1}\.\d{3}\.\d{3}|\d{7})/gi;
+      const matchesHC = texto.matchAll(regexHC);
+
+      for (const match of matchesHC) {
+        // Remove pontos e espaços, mantém apenas os dígitos
+        const numeros = match[1].replace(/\D/g, '');
+        const numeroFormatado = `HC${numeros}`;
+        numerosEncontrados.push(numeroFormatado);
+      }
+
+      if (numerosEncontrados.length === 0) {
+        toast.error('Nenhum número de HC válido foi encontrado. Formato esperado: HC 1234567 ou HC 1.234.567');
+        return;
+      }
+
+      registros = numerosEncontrados.map((numero) => ({
+        tjsp: numero,
+        tribunal: tribunal,
+        gap: '',
+        situacao: 'Em trâmite',
+        superior: 'Habeas Corpus' // Marca como HC
+      }));
+    } else {
+      // Regex para processos normais
+      const regex = /\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g;
+      numerosEncontrados = texto.match(regex);
+
+      if (!numerosEncontrados || numerosEncontrados.length === 0) {
+        toast.error('Nenhum número de processo válido foi encontrado.');
+        return;
+      }
+
+      registros = numerosEncontrados.map((numero) => ({
+        tjsp: numero,
+        tribunal: tribunal,
+        gap: '',
+        situacao: 'Em trâmite'
+      }));
     }
 
     setCarregando(true);
-
-    const registros = numerosEncontrados.map((numero) => ({
-      tjsp: numero,
-      tribunal: tribunal,
-      gap: '', // Campo vazio para ser preenchido depois
-      situacao: 'Em trâmite' // Status padrão
-    }));
 
     const { error } = await supabase
       .from('processos')
@@ -44,6 +75,7 @@ function ModalAdicionar({ onRefresh, onClose }) {
       toast.success(`${registros.length} processo(s) adicionados com sucesso!`);
       setTexto('');
       setTribunal('');
+      setIsHC(false);
       onClose();
       if (onRefresh) onRefresh();
     }
@@ -69,6 +101,37 @@ function ModalAdicionar({ onRefresh, onClose }) {
 
         {/* Content */}
         <div className="p-6 space-y-4">
+          {/* Tipo de Processo - Radio Button */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Processo
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="tipoProcesso"
+                  checked={!isHC}
+                  onChange={() => setIsHC(false)}
+                  disabled={carregando}
+                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Processo Normal</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="tipoProcesso"
+                  checked={isHC}
+                  onChange={() => setIsHC(true)}
+                  disabled={carregando}
+                  className="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">É HC (Habeas Corpus)</span>
+              </label>
+            </div>
+          </div>
+
           {/* Textarea */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -79,14 +142,14 @@ function ModalAdicionar({ onRefresh, onClose }) {
               <textarea
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={4}
-                placeholder="Cole aqui os números dos processos no formato: 1234567-12.2024.8.26.0100"
+                placeholder={isHC ? "Cole aqui os números HC no formato: HC 1234567 ou HC 1.234.567" : "Cole aqui os números dos processos no formato: 1234567-12.2024.8.26.0100"}
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 disabled={carregando}
               />
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              Formato esperado: 0000000-00.0000.0.00.0000
+              {isHC ? "Formato esperado: HC 1234567 ou HC 1.234.567 (9 dígitos: HC + 7 números)" : "Formato esperado: 0000000-00.0000.0.00.0000"}
             </p>
           </div>
 
@@ -126,7 +189,10 @@ function ModalAdicionar({ onRefresh, onClose }) {
             <div className="bg-gray-50 rounded-md p-3">
               <p className="text-xs font-medium text-gray-700 mb-1">Preview:</p>
               <p className="text-xs text-gray-600">
-                {texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g)?.length || 0} processo(s) encontrado(s)
+                {isHC
+                  ? `${(texto.match(/HC\s*(\d{1}\.\d{3}\.\d{3}|\d{7})/gi) || []).length} HC encontrado(s)`
+                  : `${texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g)?.length || 0} processo(s) encontrado(s)`
+                }
               </p>
             </div>
           )}
@@ -152,7 +218,12 @@ function ModalAdicionar({ onRefresh, onClose }) {
                 <span>Adicionando...</span>
               </div>
             ) : (
-              `Adicionar${texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g)?.length ? ` (${texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g).length})` : ''}`
+              (() => {
+                const count = isHC
+                  ? (texto.match(/HC\s*(\d{1}\.\d{3}\.\d{3}|\d{7})/gi) || []).length
+                  : (texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g) || []).length;
+                return `Adicionar${count > 0 ? ` (${count})` : ''}`;
+              })()
             )}
           </button>
         </div>

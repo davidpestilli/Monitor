@@ -321,7 +321,13 @@ function Table({ dados, carregando, onRefresh }) {
                         </div>
                         <div className="text-xs text-blue-600 font-mono">{item.tjsp}</div>
                         {item.superior && (
-                          <div className="text-xs text-gray-500 font-mono">{item.superior}</div>
+                          <div className="text-xs text-gray-500 font-mono">
+                            {item.superior === 'Habeas Corpus' ? (
+                              <span className="text-purple-600 font-semibold">Habeas Corpus</span>
+                            ) : (
+                              item.superior
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>

@@ -16,6 +16,7 @@ function Home() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterTribunal, setFilterTribunal] = useState('');
+  const [filterHC, setFilterHC] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const exportarParaExcel = () => {
@@ -75,28 +76,35 @@ function Home() {
   // Nova lógica de filtros unificada
   useEffect(() => {
     let resultado = [...dados];
-    
+
     // Filtro de busca unificada
     if (searchTerm) {
-      resultado = resultado.filter(item => 
+      resultado = resultado.filter(item =>
         item.gap?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.reu?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.tjsp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.superior?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
+
     // Filtros avançados
     if (filterStatus) {
       resultado = resultado.filter(item => item.situacao === filterStatus);
     }
-    
+
     if (filterTribunal) {
       resultado = resultado.filter(item => item.tribunal === filterTribunal);
     }
-    
+
+    // Filtro de Habeas Corpus
+    if (filterHC === 'sim') {
+      resultado = resultado.filter(item => item.superior === 'Habeas Corpus');
+    } else if (filterHC === 'nao') {
+      resultado = resultado.filter(item => item.superior !== 'Habeas Corpus');
+    }
+
     setFiltrados(resultado);
-  }, [dados, searchTerm, filterStatus, filterTribunal]);
+  }, [dados, searchTerm, filterStatus, filterTribunal, filterHC]);
   
   const forcarAtualizacaoSituacoes = async () => {
     let erros = 0;
@@ -143,9 +151,10 @@ function Home() {
     setSearchTerm('');
     setFilterStatus('');
     setFilterTribunal('');
+    setFilterHC('');
   };
 
-  const hasActiveFilters = searchTerm || filterStatus || filterTribunal;
+  const hasActiveFilters = searchTerm || filterStatus || filterTribunal || filterHC;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -211,7 +220,7 @@ function Home() {
               <button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 className={`inline-flex items-center px-3 py-2 border rounded-md text-sm font-medium transition-colors ${
-                  showAdvancedFilters || filterStatus || filterTribunal
+                  showAdvancedFilters || filterStatus || filterTribunal || filterHC
                     ? 'border-blue-300 text-blue-700 bg-blue-50'
                     : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
                 }`}
@@ -246,7 +255,7 @@ function Home() {
                   <option value="Baixa">Baixa</option>
                   <option value="Trânsito">Trânsito</option>
                 </select>
-                
+
                 <select
                   value={filterTribunal}
                   onChange={(e) => setFilterTribunal(e.target.value)}
@@ -255,6 +264,16 @@ function Home() {
                   <option value="">Todos os tribunais</option>
                   <option value="STJ">STJ</option>
                   <option value="STF">STF</option>
+                </select>
+
+                <select
+                  value={filterHC}
+                  onChange={(e) => setFilterHC(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="">Habeas Corpus (Todos)</option>
+                  <option value="sim">Apenas HC</option>
+                  <option value="nao">Excluir HC</option>
                 </select>
               </div>
             </div>
