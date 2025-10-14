@@ -19,8 +19,8 @@ function ModalAdicionar({ onRefresh, onClose }) {
     let registros = [];
 
     if (isHC) {
-      // Regex para Habeas Corpus: HC 1.013.414 ou HC 1013414
-      const regexHC = /HC\s*(\d{1}\.\d{3}\.\d{3}|\d{7})/gi;
+      // Regex para Habeas Corpus: HC 1.013.414 ou HC 1013414 (6 ou 7 dígitos)
+      const regexHC = /HC\s*(\d{1}\.\d{2,3}\.\d{3}|\d{6,7})/gi;
       const matchesHC = texto.matchAll(regexHC);
 
       for (const match of matchesHC) {
@@ -31,7 +31,7 @@ function ModalAdicionar({ onRefresh, onClose }) {
       }
 
       if (numerosEncontrados.length === 0) {
-        toast.error('Nenhum número de HC válido foi encontrado. Formato esperado: HC 1234567 ou HC 1.234.567');
+        toast.error('Nenhum número de HC válido foi encontrado. Formato esperado: HC 123456 (ou 1234567) ou HC 1.234.567');
         return;
       }
 
@@ -142,14 +142,14 @@ function ModalAdicionar({ onRefresh, onClose }) {
               <textarea
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={4}
-                placeholder={isHC ? "Cole aqui os números HC no formato: HC 1234567 ou HC 1.234.567" : "Cole aqui os números dos processos no formato: 1234567-12.2024.8.26.0100"}
+                placeholder={isHC ? "Cole aqui os números HC no formato: HC 123456 (ou 1234567)" : "Cole aqui os números dos processos no formato: 1234567-12.2024.8.26.0100"}
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 disabled={carregando}
               />
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              {isHC ? "Formato esperado: HC 1234567 ou HC 1.234.567 (9 dígitos: HC + 7 números)" : "Formato esperado: 0000000-00.0000.0.00.0000"}
+              {isHC ? "Formato esperado: HC 123456 (ou 1234567) ou HC 1.234.567 (HC + 6 ou 7 números)" : "Formato esperado: 0000000-00.0000.0.00.0000"}
             </p>
           </div>
 
@@ -190,7 +190,7 @@ function ModalAdicionar({ onRefresh, onClose }) {
               <p className="text-xs font-medium text-gray-700 mb-1">Preview:</p>
               <p className="text-xs text-gray-600">
                 {isHC
-                  ? `${(texto.match(/HC\s*(\d{1}\.\d{3}\.\d{3}|\d{7})/gi) || []).length} HC encontrado(s)`
+                  ? `${(texto.match(/HC\s*(\d{1}\.\d{2,3}\.\d{3}|\d{6,7})/gi) || []).length} HC encontrado(s)`
                   : `${texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g)?.length || 0} processo(s) encontrado(s)`
                 }
               </p>
@@ -220,7 +220,7 @@ function ModalAdicionar({ onRefresh, onClose }) {
             ) : (
               (() => {
                 const count = isHC
-                  ? (texto.match(/HC\s*(\d{1}\.\d{3}\.\d{3}|\d{7})/gi) || []).length
+                  ? (texto.match(/HC\s*(\d{1}\.\d{2,3}\.\d{3}|\d{6,7})/gi) || []).length
                   : (texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g) || []).length;
                 return `Adicionar${count > 0 ? ` (${count})` : ''}`;
               })()
