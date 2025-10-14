@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdiciona suporte para Habeas Corpus (HC) no sistema\n\nImplementa novo tipo de processo HC com validação e filtros específicos:\n\n- ModalAdicionar: radio button para selecionar tipo HC, aceita formatos \n  \"HC 1234567\" ou \"HC 1.234.567\" e normaliza para \"HC1234567\"\n- Table: exibe \"Habeas Corpus\" em roxo quando aplicável na coluna processo\n- Home: filtro dedicado para processos HC (Todos/Apenas HC/Excluir HC)\n- Armazena HC no campo ''superior'' com valor \"Habeas Corpus\"\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(if [ -f nul ])",
+      "Bash(then cat nul)",
+      "Bash(else echo \"File nul is empty or doesn''t exist\")",
+      "Bash(fi)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdiciona configuração Claude Code e documentação de requisitos\n\nInclui nova estrutura de configuração e especificações do projeto:\n\n- .claude/settings.local.json: Configurações de permissões do Claude Code\n  para automação de build, git e deploy\n- pergunta.txt: Especificações completas para implementação do sistema HC\n  incluindo estrutura das tabelas ''pesquisas'' e ''processos'' no Supabase\n\nDocumentação essencial para desenvolvimento e manutenção do sistema.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
