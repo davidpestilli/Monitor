@@ -61,11 +61,45 @@ function Home() {
 
   const carregarDados = async () => {
     setCarregando(true);
-    const { data, error } = await supabase.from('processos').select('*');
-    if (!error) {
-      setDados(data);
-      setFiltrados(data);
+
+    // Busca os processos
+    const { data: processos, error: errorProcessos } = await supabase
+      .from('processos')
+      .select('*');
+
+    if (errorProcessos) {
+      console.error('Erro ao carregar processos:', errorProcessos);
+      setCarregando(false);
+      return;
     }
+
+    // Para cada processo, busca a movimentação mais recente da tabela pesquisas
+    const processosComMovimentacao = await Promise.all(
+      processos.map(async (processo) => {
+        const { data: pesquisas, error: errorPesquisas } = await supabase
+          .from('pesquisas')
+          .select('movimentacao, decisao, data')
+          .eq('tjsp', processo.tjsp)
+          .order('data', { ascending: false })
+          .limit(1);
+
+        // Se encontrou pesquisas, usa a movimentação mais recente
+        if (!errorPesquisas && pesquisas && pesquisas.length > 0) {
+          return {
+            ...processo,
+            movimentacao: pesquisas[0].movimentacao,
+            decisao: pesquisas[0].decisao,
+            data_ultima_movimentacao: pesquisas[0].data
+          };
+        }
+
+        // Caso contrário, mantém os dados originais do processo
+        return processo;
+      })
+    );
+
+    setDados(processosComMovimentacao);
+    setFiltrados(processosComMovimentacao);
     setCarregando(false);
   };
 
