@@ -142,11 +142,11 @@ function Home() {
   
   const forcarAtualizacaoSituacoes = async () => {
     let erros = 0;
-  
+
     for (const item of filtrados) {
       const atualizacoes = {};
       const texto = item.movimentacao?.toLowerCase() || '';
-  
+
       const novaSituacao = texto.includes('recebido')
         ? 'Recebido'
         : texto.includes('baixa')
@@ -154,29 +154,45 @@ function Home() {
         : texto.includes('trânsito')
         ? 'Trânsito'
         : 'Em trâmite';
-  
+
       if (item.situacao !== novaSituacao) {
         atualizacoes.situacao = novaSituacao;
       }
-  
+
       if (item.link?.includes('processo.stj.jus.br/processo/pesquisa/')) {
         atualizacoes.decisao = 'Não há decisão';
       }
-  
+
       if (item.movimentacao === 'Não há movimentação no STJ') {
         atualizacoes.movimentacao = item.movimentacao;
       }
-  
+
+      // Checagem de link: verificar se está vazio ou incompatível com o tribunal
+      const linkPadraoSTJ = 'https://www.stj.jus.br/sites/portalp/Processos/Consulta-Processual';
+      const linkPadraoSTF = 'https://portal.stf.jus.br/';
+
+      if (item.tribunal === 'STJ') {
+        // Se link vazio ou não contém "stj", atualizar para link padrão
+        if (!item.link || !item.link.toLowerCase().includes('stj')) {
+          atualizacoes.link = linkPadraoSTJ;
+        }
+      } else if (item.tribunal === 'STF') {
+        // Se link vazio ou não contém "stf", atualizar para link padrão
+        if (!item.link || !item.link.toLowerCase().includes('stf')) {
+          atualizacoes.link = linkPadraoSTF;
+        }
+      }
+
       if (Object.keys(atualizacoes).length > 0) {
         const { error } = await supabase
           .from('processos')
           .update(atualizacoes)
           .eq('id', item.id);
-  
+
         if (error) erros++;
       }
     }
-  
+
     if (erros === 0) toast.success('Todas as situações foram atualizadas com sucesso!');
     else toast.error(`Houve ${erros} erro(s) na atualização.`);
   };
