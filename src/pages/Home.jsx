@@ -147,7 +147,11 @@ function Home() {
       const atualizacoes = {};
       const texto = item.movimentacao?.toLowerCase() || '';
 
-      const novaSituacao = texto.includes('recebido')
+      // Palavras excludentes para "recebido"
+      const excludentesRecebido = ['supremo', 'federal', 'stf', 'coordenadoria', 'classificação', 'distribuição'];
+      const temExcludente = excludentesRecebido.some(palavra => texto.includes(palavra));
+
+      const novaSituacao = (texto.includes('recebido') && !temExcludente)
         ? 'Recebido'
         : texto.includes('baixa')
         ? 'Baixa'
