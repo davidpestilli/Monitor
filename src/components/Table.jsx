@@ -88,11 +88,21 @@ function Table({ dados, carregando, onRefresh }) {
   const excluirSelecionados = async () => {
     if (confirm(`Deseja realmente excluir ${selecionados.length} processo(s)?`)) {
       const processosSelecionados = dados.filter((item) => selecionados.includes(item.id));
-      const tjsps = processosSelecionados.map((item) => item.tjsp);
 
-      // Exclui os registros da tabela "pesquisas"
-      const { error: errorPesquisas } = await supabase.from('pesquisas').delete().in('tjsp', tjsps);
-      if (errorPesquisas) {
+      // Exclui os registros da tabela "pesquisas" para cada processo (filtrando por tjsp E tribunal)
+      const exclusoesPesquisas = await Promise.all(
+        processosSelecionados.map((processo) =>
+          supabase
+            .from('pesquisas')
+            .delete()
+            .eq('tjsp', processo.tjsp)
+            .eq('tribunal', processo.tribunal)
+        )
+      );
+
+      // Verifica se houve erros na exclusão de pesquisas
+      const errosPesquisas = exclusoesPesquisas.filter((result) => result.error);
+      if (errosPesquisas.length > 0) {
         toast.error('Erro ao excluir pesquisas.');
         return;
       }
@@ -159,10 +169,13 @@ function Table({ dados, carregando, onRefresh }) {
   };
 
   // Função para buscar e cachear a data da última pesquisa
-  const buscarUltimaPesquisa = async (tjsp) => {
+  const buscarUltimaPesquisa = async (tjsp, tribunal) => {
+    // Cria uma chave única combinando tjsp e tribunal
+    const cacheKey = `${tjsp}_${tribunal}`;
+
     // Se já temos a data em cache, retorna ela
-    if (ultimasPesquisas[tjsp]) {
-      return ultimasPesquisas[tjsp];
+    if (ultimasPesquisas[cacheKey]) {
+      return ultimasPesquisas[cacheKey];
     }
 
     // Busca no banco
@@ -170,6 +183,7 @@ function Table({ dados, carregando, onRefresh }) {
       .from('pesquisas')
       .select('data')
       .eq('tjsp', tjsp)
+      .eq('tribunal', tribunal)
       .order('data', { ascending: false })
       .limit(1);
     
@@ -191,7 +205,7 @@ function Table({ dados, carregando, onRefresh }) {
     // Armazena no cache
     setUltimasPesquisas(prev => ({
       ...prev,
-      [tjsp]: resultado
+      [cacheKey]: resultado
     }));
     
     return resultado;
@@ -226,13 +240,13 @@ function Table({ dados, carregando, onRefresh }) {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed" style={{ minWidth: '1400px' }}>
             <colgroup>
-              <col style={{ width: '40px' }} /> {/* Checkbox */}
-              <col style={{ width: '200px' }} /> {/* Processo */}
-              <col style={{ width: '200px' }} /> {/* Réu */}
-              <col style={{ width: '150px' }} /> {/* Tribunal/Status */}
-              <col style={{ width: '300px' }} /> {/* Resumo */}
-              <col style={{ width: '400px' }} /> {/* Movimentação */}
-              <col style={{ width: '160px' }} /> {/* Ações */}
+              <col style={{ width: '40px' }} />
+              <col style={{ width: '200px' }} />
+              <col style={{ width: '200px' }} />
+              <col style={{ width: '150px' }} />
+              <col style={{ width: '300px' }} />
+              <col style={{ width: '400px' }} />
+              <col style={{ width: '160px' }} />
             </colgroup>
             <thead className="bg-gray-50">
               <tr>
@@ -383,7 +397,7 @@ function Table({ dados, carregando, onRefresh }) {
                       <div className="flex items-center justify-center" style={{ gap: '8px', minWidth: '160px' }}>
                         {/* Ver histórico de pesquisas */}
                         <button
-                          onClick={() => setTjspSelecionado(item.tjsp)}
+                          onClick={() => setTjspSelecionado({ tjsp: item.tjsp, tribunal: item.tribunal })}
                           className="flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 transition-colors"
                           title="Ver histórico de pesquisas"
                           style={{ minWidth: '32px', minHeight: '32px' }}
@@ -406,10 +420,10 @@ function Table({ dados, carregando, onRefresh }) {
                           <button
                             onMouseEnter={async () => {
                               // Busca e cacheia a data no hover
-                              await buscarUltimaPesquisa(item.tjsp);
+                              await buscarUltimaPesquisa(item.tjsp, item.tribunal);
                             }}
                             onClick={async () => {
-                              const resultado = await buscarUltimaPesquisa(item.tjsp);
+                              const resultado = await buscarUltimaPesquisa(item.tjsp, item.tribunal);
                               
                               let mensagem;
                               if (resultado.tipo === 'pesquisa') {
@@ -427,18 +441,18 @@ function Table({ dados, carregando, onRefresh }) {
                           </button>
                           
                           {/* Tooltip customizado */}
-                          {ultimasPesquisas[item.tjsp] && (
+                          {ultimasPesquisas[`${item.tjsp}_${item.tribunal}`] && (
                             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                              {ultimasPesquisas[item.tjsp].tipo === 'pesquisa' ? (
+                              {ultimasPesquisas[`${item.tjsp}_${item.tribunal}`].tipo === 'pesquisa' ? (
                                 <>
                                   <div className="font-semibold">Última pesquisa:</div>
-                                  <div>{formatDate(ultimasPesquisas[item.tjsp].data)}</div>
-                                  <div className="text-gray-300">({getDaysAgo(ultimasPesquisas[item.tjsp].data)})</div>
+                                  <div>{formatDate(ultimasPesquisas[`${item.tjsp}_${item.tribunal}`].data)}</div>
+                                  <div className="text-gray-300">({getDaysAgo(ultimasPesquisas[`${item.tjsp}_${item.tribunal}`].data)})</div>
                                 </>
                               ) : (
                                 <>
                                   <div className="font-semibold">Processo criado:</div>
-                                  <div>{formatDate(ultimasPesquisas[item.tjsp].data)}</div>
+                                  <div>{formatDate(ultimasPesquisas[`${item.tjsp}_${item.tribunal}`].data)}</div>
                                   <div className="text-gray-300">Sem pesquisas registradas</div>
                                 </>
                               )}
@@ -469,7 +483,11 @@ function Table({ dados, carregando, onRefresh }) {
 
       {/* Modal de Pesquisas */}
       {tjspSelecionado && (
-        <ModalPesquisas tjsp={tjspSelecionado} onClose={() => setTjspSelecionado(null)} />
+        <ModalPesquisas
+          tjsp={tjspSelecionado.tjsp}
+          tribunal={tjspSelecionado.tribunal}
+          onClose={() => setTjspSelecionado(null)}
+        />
       )}
 
       {/* Modal do Resumo */}

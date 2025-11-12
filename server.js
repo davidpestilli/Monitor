@@ -61,17 +61,18 @@ app.use(express.json());
 // Endpoint para atualizar processos (substituindo a edge function)
 app.post('/api/atualizar_processos', async (req, res) => {
   try {
-    const { tjsp, reu, superior, decisao, movimentacao, link } = req.body;
+    const { tjsp, tribunal, reu, superior, decisao, movimentacao, link } = req.body;
 
-    if (!tjsp) {
-      return res.status(400).json({ error: 'Campo tjsp é obrigatório' });
+    if (!tjsp || !tribunal) {
+      return res.status(400).json({ error: 'Campos tjsp e tribunal são obrigatórios' });
     }
 
     // 1. Atualiza tabela processos
     const { error: updateError } = await supabase
       .from('processos')
       .update({ reu, superior, decisao, movimentacao, link })
-      .eq('tjsp', tjsp);
+      .eq('tjsp', tjsp)
+      .eq('tribunal', tribunal);
 
     if (updateError) {
       console.error('Erro ao atualizar processos:', updateError);
@@ -81,9 +82,10 @@ app.post('/api/atualizar_processos', async (req, res) => {
     // 2. Insere nova linha em pesquisas com timestamp atual
     const { error: insertError } = await supabase
       .from('pesquisas')
-      .insert({ 
-        tjsp, 
-        decisao, 
+      .insert({
+        tjsp,
+        tribunal,
+        decisao,
         movimentacao,
         data: new Date().toISOString() // Adiciona timestamp atual
       });

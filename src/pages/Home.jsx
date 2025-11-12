@@ -80,6 +80,7 @@ function Home() {
           .from('pesquisas')
           .select('movimentacao, decisao, data')
           .eq('tjsp', processo.tjsp)
+          .eq('tribunal', processo.tribunal)
           .order('data', { ascending: false })
           .limit(1);
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { toast } from 'sonner';
 
-function ModalPesquisas({ tjsp, onClose }) {
+function ModalPesquisas({ tjsp, tribunal, onClose }) {
   const [dados, setDados] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [pagina, setPagina] = useState(1);
@@ -11,8 +11,8 @@ function ModalPesquisas({ tjsp, onClose }) {
   const [modalEdicao, setModalEdicao] = useState(null); // { id, campo, valor }
 
   useEffect(() => {
-    if (tjsp) buscarPesquisas();
-  }, [tjsp]);
+    if (tjsp && tribunal) buscarPesquisas();
+  }, [tjsp, tribunal]);
 
   const buscarPesquisas = async () => {
     setCarregando(true);
@@ -20,6 +20,7 @@ function ModalPesquisas({ tjsp, onClose }) {
       .from('pesquisas')
       .select('*')
       .eq('tjsp', tjsp)
+      .eq('tribunal', tribunal)
       .order('data', { ascending: false });
 
     if (!error) setDados(data);
