@@ -11,7 +11,10 @@ import {
   Calendar, 
   MoreVertical, 
   Edit3, 
-  Trash2 
+  Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 
 function Table({ dados, carregando, onRefresh }) {
@@ -22,6 +25,44 @@ function Table({ dados, carregando, onRefresh }) {
   const [editandoGap, setEditandoGap] = useState(null);
   const [resumoModal, setResumoModal] = useState(null);
   const [ultimasPesquisas, setUltimasPesquisas] = useState({});
+  
+  // Estado para ordenação por número do processo
+  const [ordenacaoProcesso, setOrdenacaoProcesso] = useState(null); // null, 'asc', 'desc'
+
+  // Função para extrair número do processo para ordenação
+  const extrairNumeroProcesso = (tjsp) => {
+    if (!tjsp) return 0;
+    // Remove pontos e traços para obter apenas números
+    const numeros = tjsp.replace(/[^0-9]/g, '');
+    return parseInt(numeros, 10) || 0;
+  };
+
+  // Função para ordenar dados
+  const dadosOrdenados = () => {
+    if (!ordenacaoProcesso || !dados) return dados;
+    
+    return [...dados].sort((a, b) => {
+      const numA = extrairNumeroProcesso(a.tjsp);
+      const numB = extrairNumeroProcesso(b.tjsp);
+      
+      if (ordenacaoProcesso === 'asc') {
+        return numA - numB;
+      } else {
+        return numB - numA;
+      }
+    });
+  };
+
+  // Função para alternar ordenação
+  const toggleOrdenacaoProcesso = () => {
+    if (ordenacaoProcesso === null) {
+      setOrdenacaoProcesso('asc');
+    } else if (ordenacaoProcesso === 'asc') {
+      setOrdenacaoProcesso('desc');
+    } else {
+      setOrdenacaoProcesso(null);
+    }
+  };
 
   const StatusBadge = ({ status }) => {
     const styles = {
@@ -259,7 +300,16 @@ function Table({ dados, carregando, onRefresh }) {
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Processo
+                  <button
+                    onClick={toggleOrdenacaoProcesso}
+                    className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    title={ordenacaoProcesso === null ? 'Ordenar por número' : ordenacaoProcesso === 'asc' ? 'Menor para maior' : 'Maior para menor'}
+                  >
+                    Processo
+                    {ordenacaoProcesso === null && <ArrowUpDown size={14} className="text-gray-400" />}
+                    {ordenacaoProcesso === 'asc' && <ArrowUp size={14} className="text-blue-600" />}
+                    {ordenacaoProcesso === 'desc' && <ArrowDown size={14} className="text-blue-600" />}
+                  </button>
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Réu
@@ -298,7 +348,7 @@ function Table({ dados, carregando, onRefresh }) {
                   </td>
                 </tr>
               ) : (
-                dados.map((item) => (
+                dadosOrdenados().map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-4">
                       <input
