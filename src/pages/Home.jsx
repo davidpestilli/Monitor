@@ -152,7 +152,10 @@ function Home() {
       const excludentesRecebido = ['supremo', 'federal', 'stf', 'coordenadoria', 'classificação', 'distribuição'];
       const temExcludente = excludentesRecebido.some(palavra => texto.includes(palavra));
 
-      const novaSituacao = (texto.includes('recebido') && !temExcludente)
+      // Verifica se contém "são paulo" em qualquer forma (com ou sem acento)
+      const contemSaoPaulo = texto.includes('são paulo') || texto.includes('sao paulo');
+
+      const novaSituacao = (texto.includes('recebido') && !temExcludente && contemSaoPaulo)
         ? 'Recebido'
         : texto.includes('baixa')
         ? 'Baixa'
