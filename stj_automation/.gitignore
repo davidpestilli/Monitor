@@ -1,0 +1,22 @@
+# Environment
+.env
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and screenshots
+logs/
+screenshots/
+*.log
+
+# Chrome profile
+chrome_profile/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

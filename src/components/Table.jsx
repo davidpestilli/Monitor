@@ -1,24 +1,18 @@
 import { useState } from 'react';
-import ModalPesquisas from './ModalPesquisas';
 import { supabase } from '../services/supabase';
 import { toast } from 'sonner';
 
 // Importação correta dos ícones
 import { 
-  Eye, 
   ExternalLink, 
   FileText, 
   Calendar, 
-  MoreVertical, 
-  Edit3, 
-  Trash2,
   ArrowUpDown,
   ArrowUp,
   ArrowDown
 } from 'lucide-react';
 
 function Table({ dados, carregando, onRefresh }) {
-  const [tjspSelecionado, setTjspSelecionado] = useState(null);
   const [selecionados, setSelecionados] = useState([]);
   
   // Estados para edição
@@ -219,26 +213,26 @@ function Table({ dados, carregando, onRefresh }) {
       return ultimasPesquisas[cacheKey];
     }
 
-    // Busca no banco
-    const { data, error } = await supabase
-      .from('pesquisas')
-      .select('data')
+    // Busca diretamente no banco de dados para ter dados atualizados
+    const campoData = tribunal === 'STJ' ? 'pesquisa_stj' : 'pesquisa_stf';
+    
+    const { data: processoAtualizado, error } = await supabase
+      .from('processos')
+      .select(`${campoData}, created_at`)
       .eq('tjsp', tjsp)
       .eq('tribunal', tribunal)
-      .order('data', { ascending: false })
-      .limit(1);
+      .single();
     
     let resultado;
-    if (!error && data && data.length > 0) {
+    if (!error && processoAtualizado && processoAtualizado[campoData]) {
       resultado = {
-        data: data[0].data,
+        data: processoAtualizado[campoData],
         tipo: 'pesquisa'
       };
     } else {
       // Fallback para created_at
-      const processo = dados.find(item => item.tjsp === tjsp);
       resultado = {
-        data: processo?.created_at,
+        data: processoAtualizado?.created_at || dados.find(item => item.tjsp === tjsp)?.created_at,
         tipo: 'criacao'
       };
     }
@@ -443,18 +437,8 @@ function Table({ dados, carregando, onRefresh }) {
                     </td>
                     
                     {/* Coluna Ações */}
-                    <td className="px-2 py-4" style={{ width: '160px' }}>
-                      <div className="flex items-center justify-center" style={{ gap: '8px', minWidth: '160px' }}>
-                        {/* Ver histórico de pesquisas */}
-                        <button
-                          onClick={() => setTjspSelecionado({ tjsp: item.tjsp, tribunal: item.tribunal })}
-                          className="flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="Ver histórico de pesquisas"
-                          style={{ minWidth: '32px', minHeight: '32px' }}
-                        >
-                          <Eye size={16} />
-                        </button>
-                        
+                    <td className="px-2 py-4" style={{ width: '96px' }}>
+                      <div className="flex items-center justify-center" style={{ gap: '8px', minWidth: '96px' }}>
                         {/* Abrir processo externo */}
                         <button
                           onClick={() => window.open(item.link, '_blank')}
@@ -511,16 +495,6 @@ function Table({ dados, carregando, onRefresh }) {
                             </div>
                           )}
                         </div>
-                        
-                        {/* Menu de mais opções */}
-                        <button
-                          onClick={() => console.log('Menu expandido para item:', item.id)}
-                          className="flex items-center justify-center w-8 h-8 rounded text-gray-600 hover:bg-gray-100 transition-colors"
-                          title="Mais opções"
-                          style={{ minWidth: '32px', minHeight: '32px' }}
-                        >
-                          <MoreVertical size={16} />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -530,15 +504,6 @@ function Table({ dados, carregando, onRefresh }) {
           </table>
         </div>
       </div>
-
-      {/* Modal de Pesquisas */}
-      {tjspSelecionado && (
-        <ModalPesquisas
-          tjsp={tjspSelecionado.tjsp}
-          tribunal={tjspSelecionado.tribunal}
-          onClose={() => setTjspSelecionado(null)}
-        />
-      )}
 
       {/* Modal do Resumo */}
       {resumoModal && (
