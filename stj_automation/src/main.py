@@ -12,6 +12,7 @@ from .scraper import STJScraper
 from .supabase_client import SupabaseClient
 from .utils import get_logger, is_hc_process, take_screenshot
 from .config import MAX_RETRIES
+from .progress_window import ProgressWindow
 
 logger = get_logger(__name__)
 
@@ -23,6 +24,7 @@ class STJAutomation:
         self.browser = BrowserHandler()
         self.scraper = None
         self.supabase = SupabaseClient()
+        self.progress_window = None  # Janela de progresso flutuante
         self.stats = {
             "total": 0,
             "sucesso": 0,
@@ -57,14 +59,20 @@ class STJAutomation:
             logger.info("=" * 60)
             
             # Inicia navegador
+            logger.info("Iniciando navegador...")
             if not self.browser.start():
                 logger.error("Falha ao iniciar navegador")
                 return False
+            logger.info("Navegador iniciado com sucesso")
             
             # Navega para STJ
+            logger.info("Navegando para portal STJ...")
             if not self.browser.navigate_to_stj():
                 logger.error("Falha ao acessar portal STJ")
+                logger.info("\nEncerrando navegador...")
+                self.browser.close()
                 return False
+            logger.info("Portal STJ acessado com sucesso")
             
             # Inicializa scraper
             self.scraper = STJScraper(self.browser)
@@ -74,6 +82,8 @@ class STJAutomation:
             
         except Exception as e:
             logger.error(f"Erro no setup: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
     
     def process_single(self, processo: Dict) -> bool:
@@ -99,6 +109,10 @@ class STJAutomation:
             logger.info(f"PROCESSANDO: {tjsp}")
             logger.info(f"{'='*60}")
             
+            # Atualiza janela de progresso
+            if self.progress_window:
+                self.progress_window.update(current=tjsp, action="Pesquisando no portal...")
+            
             # 1. Pesquisa processo
             if not self.scraper.search_process(tjsp):
                 logger.error(f"Falha ao pesquisar processo {tjsp}")
@@ -106,11 +120,15 @@ class STJAutomation:
                 return False
             
             # 2. Verifica situação do resultado
+            if self.progress_window:
+                self.progress_window.update(action="Verificando resultado...")
             encontrou, tipo = self.scraper.verify_situation()
             
             # 3. Trata resultado não encontrado
             if not encontrou or tipo == "nao_encontrado":
                 logger.info(f"Processo {tjsp} não cadastrado no STJ")
+                if self.progress_window:
+                    self.progress_window.update(action="Processo não encontrado no STJ")
                 self._handle_not_found(tjsp)
                 self.stats["nao_encontrado"] += 1
                 return True
@@ -118,6 +136,8 @@ class STJAutomation:
             # 4. Trata múltiplos processos (2 ou mais)
             if tipo == "multiplos_processos":
                 self.stats["multiplos_processos"] += 1
+                if self.progress_window:
+                    self.progress_window.update(action="Selecionando processo mais recente...")
                 if not self.scraper.handle_two_processes():
                     logger.error("Falha ao selecionar processo mais recente")
                     self.stats["erro"] += 1
@@ -125,6 +145,8 @@ class STJAutomation:
                 time.sleep(2)
             
             # 5. Extrai dados
+            if self.progress_window:
+                self.progress_window.update(action="Extraindo dados do processo...")
             dados = self.scraper.extract_data()
             
             if not dados.get("movimentacao"):
@@ -144,6 +166,8 @@ class STJAutomation:
                 self.stats["hc_count"] += 1
             
             # 7. Atualiza Supabase
+            if self.progress_window:
+                self.progress_window.update(action="Atualizando banco de dados...")
             success = self.supabase.update_processo_stj(
                 tjsp=tjsp,
                 reu=dados["reu"],
@@ -246,9 +270,20 @@ class STJAutomation:
             True se sucesso
         """
         try:
+            # Inicia janela de progresso flutuante
+            self.progress_window = ProgressWindow("STJ")
+            self.progress_window.start()
+            self.progress_window.update(status="Inicializando...")
+            
             # 1. Setup
             if not self.setup():
+                if self.progress_window:
+                    self.progress_window.complete(success=False)
+                    time.sleep(3)
+                    self.progress_window.close()
                 return False
+            
+            self.progress_window.update(status="Buscando processos...")
             
             # 2. Busca processos
             logger.info("\nBuscando processos no Supabase...")
@@ -256,13 +291,34 @@ class STJAutomation:
             
             if not processos:
                 logger.warning("Nenhum processo encontrado para processar")
+                if self.progress_window:
+                    self.progress_window.update(status="Nenhum processo encontrado")
+                    self.progress_window.complete(success=True)
+                    time.sleep(3)
+                    self.progress_window.close()
                 return True
             
             self.stats["total"] = len(processos)
             logger.info(f"Encontrados {len(processos)} processos para processar\n")
             
+            # Atualiza janela de progresso com total
+            self.progress_window.update(
+                total=len(processos),
+                processed=0,
+                status="Em execução..."
+            )
+            
             # 3. Processa cada processo
             for i, processo in enumerate(processos, 1):
+                tjsp = processo.get('tjsp', 'N/A')
+                
+                # Atualiza progresso
+                self.progress_window.update(
+                    processed=i,
+                    current=tjsp,
+                    action="Iniciando pesquisa..."
+                )
+                
                 logger.info(f"\n[{i}/{len(processos)}] Processando...")
                 self.process_single(processo)
                 
@@ -277,13 +333,29 @@ class STJAutomation:
             self._load_final_stats()
             self._print_stats()
             
+            # Finaliza janela de progresso
+            if self.progress_window:
+                self.progress_window.complete(success=True)
+                time.sleep(5)  # Mantém visível por 5 segundos
+                self.progress_window.close()
+            
             return True
             
         except KeyboardInterrupt:
             logger.warning("\n\nAutomação interrompida pelo usuário")
+            if self.progress_window:
+                self.progress_window.update(status="Interrompido pelo usuário")
+                self.progress_window.complete(success=False)
+                time.sleep(2)
+                self.progress_window.close()
             return False
         except Exception as e:
             logger.error(f"Erro fatal na automação: {e}")
+            if self.progress_window:
+                self.progress_window.update(status=f"Erro: {str(e)[:50]}")
+                self.progress_window.complete(success=False)
+                time.sleep(3)
+                self.progress_window.close()
             return False
         finally:
             # Sempre fecha navegador

@@ -31,13 +31,14 @@ class SupabaseClient:
         try:
             logger.info("Buscando processos STF pendentes...")
             
-            response = self.client.table("processos_stf")\
+            response = self.client.table("processos")\
                 .select("tjsp, tribunal, situacao")\
+                .eq("tribunal", "STF")\
                 .eq("situacao", "Em trâmite")\
                 .execute()
             
             processos = response.data if response.data else []
-            logger.info(f"Encontrados {len(processos)} processos pendentes")
+            logger.info(f"Encontrados {len(processos)} processos STF pendentes")
             
             return processos
             

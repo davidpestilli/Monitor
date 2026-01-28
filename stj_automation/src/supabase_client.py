@@ -36,9 +36,10 @@ class SupabaseClient:
             Lista de processos
         """
         try:
-            url = f"{self.base_url}/rest/v1/processos_stj"
+            url = f"{self.base_url}/rest/v1/processos"
             params = {
                 "select": "tjsp,tribunal,situacao",
+                "tribunal": "eq.STJ",
                 "situacao": "eq.Em trâmite"
             }
             
@@ -46,7 +47,7 @@ class SupabaseClient:
             response.raise_for_status()
             
             processos = response.json()
-            logger.info(f"Encontrados {len(processos)} processos em trâmite")
+            logger.info(f"Encontrados {len(processos)} processos STJ em trâmite")
             return processos
             
         except Exception as e:

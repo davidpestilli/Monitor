@@ -1,6 +1,7 @@
 """
 Classe principal para automação STF
 """
+import time
 from datetime import datetime
 from typing import Dict, Any, Optional
 
@@ -8,6 +9,7 @@ from .browser_handler import BrowserHandler
 from .scraper import STFScraper
 from .supabase_client import SupabaseClient
 from .utils import get_logger, format_processo_number
+from .progress_window import ProgressWindow
 
 logger = get_logger(__name__)
 
@@ -20,6 +22,7 @@ class STFAutomation:
         self.browser = BrowserHandler()
         self.scraper: Optional[STFScraper] = None
         self.supabase = SupabaseClient()
+        self.progress_window = None  # Janela de progresso flutuante
         
         # Estatísticas
         self.stats = {
@@ -38,36 +41,62 @@ class STFAutomation:
             logger.info("INICIANDO AUTOMAÇÃO STF")
             logger.info("=" * 80)
             
+            # Inicia janela de progresso flutuante
+            self.progress_window = ProgressWindow("STF")
+            self.progress_window.start()
+            self.progress_window.update(status="Inicializando...")
+            
             self.stats["tempo_inicio"] = datetime.now()
             
             # Inicia navegador
+            self.progress_window.update(action="Iniciando navegador...")
             if not self.browser.start():
                 logger.error("Falha ao iniciar navegador")
+                self._close_progress(success=False)
                 return
             
             # Inicializa scraper
             self.scraper = STFScraper(self.browser)
             
             # Navega para página do STF
+            self.progress_window.update(action="Acessando portal STF...")
             if not self.browser.navigate_to_stf():
                 logger.error("Falha ao acessar portal STF")
                 self.browser.close()
+                self._close_progress(success=False)
                 return
             
             # Busca processos pendentes
+            self.progress_window.update(status="Buscando processos...")
             processos = self.supabase.get_processos_stf_pendentes()
             
             if not processos:
                 logger.info("Nenhum processo pendente encontrado")
+                self.progress_window.update(status="Nenhum processo encontrado")
                 self.browser.close()
+                self._close_progress(success=True)
                 return
             
             self.stats["total"] = len(processos)
             logger.info(f"Total de processos a processar: {self.stats['total']}")
             
+            # Atualiza janela de progresso com total
+            self.progress_window.update(
+                total=self.stats["total"],
+                processed=0,
+                status="Em execução..."
+            )
+            
             # Processa cada processo
             for idx, processo in enumerate(processos, 1):
                 tjsp = processo.get("tjsp")
+                
+                # Atualiza progresso
+                self.progress_window.update(
+                    processed=idx,
+                    current=tjsp,
+                    action="Iniciando pesquisa..."
+                )
                 
                 logger.info("-" * 80)
                 logger.info(f"Processando {idx}/{self.stats['total']}: {tjsp}")
@@ -86,10 +115,23 @@ class STFAutomation:
             logger.info("AUTOMAÇÃO STF FINALIZADA")
             logger.info("=" * 80)
             
+            # Finaliza janela de progresso
+            self._close_progress(success=True)
+            
         except Exception as e:
             logger.error(f"Erro na execução da automação: {e}")
             if self.browser:
                 self.browser.close()
+            self._close_progress(success=False, error=str(e))
+    
+    def _close_progress(self, success=True, error=None):
+        """Fecha a janela de progresso"""
+        if self.progress_window:
+            if error:
+                self.progress_window.update(status=f"Erro: {error[:50]}")
+            self.progress_window.complete(success=success)
+            time.sleep(5 if success else 3)
+            self.progress_window.close()
     
     def process_single(self, tjsp: str):
         """
@@ -102,22 +144,32 @@ class STFAutomation:
             # Formata número (remove caracteres especiais)
             numero = format_processo_number(tjsp)
             
+            # Atualiza janela de progresso
+            if self.progress_window:
+                self.progress_window.update(current=tjsp, action="Selecionando tipo de pesquisa...")
+            
             # Seleciona tipo de pesquisa (Número único)
             if not self.scraper.selecionar_tipo_pesquisa():
                 self._registrar_erro(tjsp)
                 return
             
             # Digita número
+            if self.progress_window:
+                self.progress_window.update(action="Digitando número do processo...")
             if not self.scraper.digitar_numero_processo(numero):
                 self._registrar_erro(tjsp)
                 return
             
             # Clica em Pesquisar
+            if self.progress_window:
+                self.progress_window.update(action="Pesquisando no portal...")
             if not self.scraper.clicar_pesquisar():
                 self._registrar_erro(tjsp)
                 return
             
             # Verifica se processo foi encontrado
+            if self.progress_window:
+                self.progress_window.update(action="Verificando resultado...")
             encontrado = self.scraper.verificar_processo_encontrado()
             
             if not encontrado:
@@ -147,6 +199,10 @@ class STFAutomation:
         try:
             logger.info(f"Extraindo dados do processo {tjsp}...")
             
+            # Atualiza janela de progresso
+            if self.progress_window:
+                self.progress_window.update(action="Extraindo dados do processo...")
+            
             # Extrai dados
             partes = self.scraper.extrair_partes()
             numero_superior = self.scraper.extrair_numero_superior()
@@ -163,6 +219,10 @@ class STFAutomation:
                 "link": link,
                 "pesquisa_stf": datetime.now().isoformat()
             }
+            
+            # Atualiza janela de progresso
+            if self.progress_window:
+                self.progress_window.update(action="Atualizando banco de dados...")
             
             # Atualiza no banco
             if self.supabase.update_processo(tjsp, dados_processo):

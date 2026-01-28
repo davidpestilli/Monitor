@@ -88,27 +88,44 @@ class BrowserHandler:
         Returns:
             True se sucesso
         """
-        try:
-            logger.info(f"Navegando para {STJ_URL}")
-            self.driver.get(STJ_URL)
-            
-            # Aguarda página carregar
-            self.wait.until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
-            
-            # Verifica se chegou na página correta
-            if "Consulta Processual" in self.driver.title:
-                logger.info("Página STJ carregada com sucesso")
-                return True
-            else:
-                logger.warning(f"Título inesperado: {self.driver.title}")
-                return False
+        max_attempts = 3
+        
+        for attempt in range(1, max_attempts + 1):
+            try:
+                logger.info(f"Navegando para {STJ_URL} (tentativa {attempt}/{max_attempts})")
+                self.driver.get(STJ_URL)
                 
-        except Exception as e:
-            logger.error(f"Erro ao navegar para STJ: {e}")
-            take_screenshot(self.driver, "erro_navegacao")
-            return False
+                # Aguarda página carregar
+                time.sleep(3)  # Pequeno delay para garantir carregamento
+                
+                self.wait.until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                )
+                
+                # Verifica se chegou na página correta - mais flexível
+                titulo = self.driver.title.lower()
+                url_atual = self.driver.current_url.lower()
+                
+                if "stj" in titulo or "stj" in url_atual or "consulta" in titulo:
+                    logger.info(f"Página STJ carregada com sucesso (título: {self.driver.title})")
+                    return True
+                else:
+                    logger.warning(f"Título inesperado: {self.driver.title}")
+                    if attempt < max_attempts:
+                        logger.info("Tentando novamente...")
+                        time.sleep(2)
+                        continue
+                    return False
+                    
+            except Exception as e:
+                logger.error(f"Erro ao navegar para STJ (tentativa {attempt}): {e}")
+                if attempt < max_attempts:
+                    time.sleep(2)
+                    continue
+                take_screenshot(self.driver, "erro_navegacao")
+                return False
+        
+        return False
     
     def wait_for_element(
         self, 

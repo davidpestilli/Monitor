@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
 import Table from '../components/Table';
 import ModalAdicionar from '../components/ModalAdicionar';
-import { Search, Filter, Download, Plus, RotateCcw } from 'lucide-react';
+import ModalAjuda from '../components/ModalAjuda';
+import RobotPanel from '../components/RobotPanel';
+import { Search, Filter, Download, Plus, RotateCcw, HelpCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
@@ -11,6 +13,7 @@ function Home() {
   const [filtrados, setFiltrados] = useState([]);
   const [carregando, setCarregando] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showAjuda, setShowAjuda] = useState(false);
   
   // Novos estados para o sistema de filtros redesenhado
   const [searchTerm, setSearchTerm] = useState('');
@@ -203,6 +206,15 @@ function Home() {
             
             <div className="flex items-center space-x-3">
               <button
+                onClick={() => setShowAjuda(true)}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                title="Ajuda"
+              >
+                <HelpCircle size={16} className="mr-2" />
+                Ajuda
+              </button>
+              
+              <button
                 onClick={exportarParaExcel}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
@@ -232,6 +244,9 @@ function Home() {
 
       {/* Main Content */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+        {/* Robot Panel - Only visible locally */}
+        <RobotPanel onRefresh={carregarDados} />
+        
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -319,12 +334,17 @@ function Home() {
           onRefresh={carregarDados}
         />
 
-        {/* Modal */}
+        {/* Modal Adicionar */}
         {showModal && (
           <ModalAdicionar
             onClose={() => setShowModal(false)}
             onRefresh={carregarDados}
           />
+        )}
+
+        {/* Modal Ajuda */}
+        {showAjuda && (
+          <ModalAjuda onClose={() => setShowAjuda(false)} />
         )}
       </div>
     </div>
