@@ -144,6 +144,113 @@ pip install -r requirements.txt
 \`\`\``
   },
   {
+    id: 'setup',
+    title: 'Configuração Inicial',
+    icon: Settings,
+    content: `**Primeira instalação no Windows:**
+
+**1. Instalar Node.js**
+- Baixe em: \`https://nodejs.org\`
+- Instale a versão LTS (recomendada)
+- Durante a instalação, marque "Add to PATH"
+
+**2. Instalar Python 3.8+**
+- Baixe em: \`https://www.python.org/downloads/\`
+- ⚠️ IMPORTANTE: Marque "Add Python to PATH" no instalador
+- Verifique instalação: \`python --version\`
+
+**3. Instalar Google Chrome**
+- Baixe em: \`https://www.google.com/chrome/\`
+- Necessário para os robôs de automação
+
+**4. Clonar o projeto**
+\`\`\`bash
+git clone https://github.com/davidpestilli/Monitor.git
+cd Monitor
+\`\`\`
+
+**5. Instalar dependências do projeto**
+\`\`\`bash
+# Instalar módulos Node.js
+npm install
+
+# Instalar módulos Python do robô STF
+cd stf_automation
+pip install -r requirements.txt
+cd ..
+
+# Instalar módulos Python do robô STJ
+cd stj_automation
+pip install -r requirements.txt
+cd ..
+\`\`\`
+
+**6. Rodar o projeto**
+\`\`\`bash
+# Terminal 1 - Frontend
+npm run dev
+
+# Terminal 2 - Servidor (necessário para robôs)
+npm start
+\`\`\`
+
+O frontend estará em \`http://localhost:5173\` e o servidor em \`http://localhost:3001\`.`
+  },
+  {
+    id: 'path',
+    title: 'Configurar PATH do Windows',
+    icon: Terminal,
+    content: `**O que é o PATH?**
+O PATH é uma variável de ambiente que indica onde o Windows deve procurar por executáveis.
+
+**Como adicionar ao PATH manualmente:**
+
+**1. Abrir Variáveis de Ambiente**
+- Pressione \`Win + R\`
+- Digite: \`sysdm.cpl\`
+- Clique em "Variáveis de Ambiente"
+
+**2. Editar a variável PATH**
+- Na seção "Variáveis do sistema", encontre \`Path\`
+- Clique em "Editar"
+- Clique em "Novo"
+
+**3. Adicionar caminhos necessários:**
+
+**Python:**
+- \`C:\\Users\\<seu-usuario>\\AppData\\Local\\Programs\\Python\\Python3XX\`
+- \`C:\\Users\\<seu-usuario>\\AppData\\Local\\Programs\\Python\\Python3XX\\Scripts\`
+
+**Node.js (geralmente adicionado automaticamente):**
+- \`C:\\Program Files\\nodejs\`
+
+**pip (geralmente adicionado com Python):**
+- \`C:\\Users\\<seu-usuario>\\AppData\\Local\\Programs\\Python\\Python3XX\\Scripts\`
+
+**4. Verificar instalação**
+Abra um novo terminal (PowerShell ou CMD) e execute:
+\`\`\`bash
+python --version
+node --version
+npm --version
+pip --version
+\`\`\`
+
+**⚠️ IMPORTANTE:** Após adicionar ao PATH, feche e reabra o terminal para as mudanças terem efeito.
+
+**Encontrar caminhos de instalação:**
+\`\`\`bash
+# Ver onde o Python está instalado
+where python
+
+# Ver onde o Node está instalado
+where node
+
+# Ver onde o pip está instalado
+where pip
+\`\`\``
+  },
+  {
     id: 'local',
     title: 'Ambiente Local vs Produção',
     icon: AlertTriangle,
@@ -162,17 +269,13 @@ pip install -r requirements.txt
 
 **Como rodar localmente:**
 \`\`\`bash
-# 1. Clone o repositório
-git clone https://github.com/davidpestilli/Monitor.git
+# 1. Certifique-se de ter instalado as dependências (veja seção "Configuração Inicial")
 
-# 2. Instale dependências Node.js
-npm install
-
-# 3. Inicie o frontend
+# 2. Inicie o frontend
 npm run dev
 
-# 4. Em outro terminal, inicie o servidor
-npm run server
+# 3. Em outro terminal, inicie o servidor
+npm start
 \`\`\`
 
 O frontend estará em \`http://localhost:5173\` e o servidor em \`http://localhost:3001\`.`
