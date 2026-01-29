@@ -5,12 +5,13 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Carrega variáveis de ambiente
-load_dotenv()
+# Carrega variáveis de ambiente do diretório raiz do projeto
+ROOT_DIR = Path(__file__).parent.parent.parent  # Sobe de src -> stf_automation -> Monitor
+load_dotenv(ROOT_DIR / '.env')
 
 # Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # Usa service key para leitura e escrita
 
 # Browser
 HEADLESS = os.getenv("HEADLESS", "False").lower() == "true"

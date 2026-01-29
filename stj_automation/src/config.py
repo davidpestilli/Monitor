@@ -5,8 +5,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Carrega variáveis de ambiente
-load_dotenv()
+# Carrega variáveis de ambiente do diretório raiz do projeto
+ROOT_DIR = Path(__file__).parent.parent.parent  # Sobe de src -> stj_automation -> Monitor
+load_dotenv(ROOT_DIR / '.env')
 
 # Diretórios
 BASE_DIR = Path(__file__).parent
